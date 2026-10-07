@@ -418,6 +418,7 @@
             @accounts-update="updateAccounts"
             @new-receive-address="showAddressDetailsWithConfirmation"
             @create-hot="$refs.hotWallet.openCreate()"
+            @pair-remote-signer="$refs.nostrSigner.dialog = true"
           ></onchain-wallet-list>
           <onchain-hot-wallet
             ref="hotWallet"

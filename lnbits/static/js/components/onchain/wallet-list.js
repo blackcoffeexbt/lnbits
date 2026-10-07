@@ -1,7 +1,12 @@
 window.app.component('onchain-wallet-list', {
   name: 'onchain-wallet-list',
   template: '#onchain-wallet-list',
-  emits: ['accounts-update', 'new-receive-address', 'create-hot'],
+  emits: [
+    'accounts-update',
+    'new-receive-address',
+    'create-hot',
+    'pair-remote-signer'
+  ],
 
   props: [
     'adminkey',
