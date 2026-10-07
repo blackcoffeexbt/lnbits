@@ -193,6 +193,14 @@ window.app.component('onchain-nostr-signer', {
         this.busy = false
       }
     },
+    walletDescriptor(descriptor) {
+      return descriptor
+        .replace(
+          /\/<([0-9]+(?:;[0-9]+)+)>\//g,
+          (_match, branches) => '/{' + branches.replaceAll(';', ',') + '}/'
+        )
+        .split('#')[0]
+    },
     async importAccount() {
       this.busy = true
       this.message = 'Importing public wallet…'
@@ -204,7 +212,8 @@ window.app.component('onchain-nostr-signer', {
         )
         if (
           wallet?.onchain_network === this.network &&
-          wallet?.onchain_meta?.masterpub === this.account.descriptor
+          this.walletDescriptor(wallet?.onchain_meta?.masterpub || '') ===
+            this.walletDescriptor(this.account.descriptor)
         ) {
           this.imported = true
           this.message =
@@ -224,7 +233,7 @@ window.app.component('onchain-nostr-signer', {
           {
             title: 'Remote Bitcoin signer',
             network: this.network,
-            masterpub: this.account.descriptor,
+            masterpub: this.walletDescriptor(this.account.descriptor),
             meta: {
               signer: 'nostr',
               accountPath: this.account.path

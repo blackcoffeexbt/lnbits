@@ -65,7 +65,7 @@ test('saved pairing reconnects without opening pairing setup', async () => {
 for (const configured of [false, true, 'different']) {
   test(`remote account import uses the core wallet API: ${configured}`, async () => {
     const calls = []
-    const descriptor = 'public-descriptor'
+    const descriptor = 'wpkh([12345678/84h/1h/0h]public-key/<0;1>/*)#checksum'
     const {instance: signer} = component(
       'lnbits/static/js/components/onchain/nostr-signer.js',
       {
@@ -79,7 +79,10 @@ for (const configured of [false, true, 'different']) {
                       onchain_network: 'Testnet4',
                       onchain_wallet_kind: 'watch',
                       onchain_meta: {
-                        masterpub: configured === true ? descriptor : 'other'
+                        masterpub:
+                          configured === true
+                            ? 'wpkh([12345678/84h/1h/0h]public-key/{0,1}/*)'
+                            : 'other'
                       }
                     }
                   : {onchain_wallet_kind: null}
@@ -104,7 +107,10 @@ for (const configured of [false, true, 'different']) {
       assert.equal(calls[1].path, '/api/v1/wallet/onchain')
       assert.equal(calls[1].body.meta.signer, 'nostr')
       assert.equal(calls[1].body.meta.accountPath, signer.account.path)
-      assert.equal(calls[1].body.masterpub, descriptor)
+      assert.equal(
+        calls[1].body.masterpub,
+        'wpkh([12345678/84h/1h/0h]public-key/{0,1}/*)'
+      )
     }
   })
 }

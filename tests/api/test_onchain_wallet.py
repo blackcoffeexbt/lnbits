@@ -1479,7 +1479,7 @@ async def test_remote_signer_metadata_survives_wallet_import(
         "/api/v1/wallet/onchain",
         headers=headers,
         json={
-            "masterpub": descriptor,
+            "masterpub": descriptor.replace("/{0,1}/", "/<0;1>/"),
             "title": "Remote Bitcoin signer",
             "network": "Testnet4",
             "meta": {"signer": "nostr", "accountPath": account_path},
@@ -1493,3 +1493,9 @@ async def test_remote_signer_metadata_survives_wallet_import(
     assert stored and stored.onchain_meta.signer == "nostr"
     assert stored.onchain_meta.accountPath == account_path
     assert stored.onchain_wallet_kind == "watch"
+    assert "/{0,1}/" in stored.onchain_meta.masterpub
+    addresses = await http_client.get(
+        f"/api/v1/onchain/addresses/{wallet.id}", headers=headers
+    )
+    assert addresses.status_code == 200, addresses.text
+    assert addresses.json()
