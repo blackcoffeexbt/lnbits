@@ -1,4 +1,8 @@
-import {EncryptionSession, ephemeralKey, initHash} from './session-crypto.js'
+import {
+  EncryptionSession,
+  ephemeralKey,
+  initHash
+} from './session-crypto.bundle.js'
 // NIP-46 envelope kind with NIP-44 encrypted Bitcoin signer v1 payloads.
 export const BITCOIN_SIGNER_REQUEST_KIND = 24133
 export const BITCOIN_SIGNER_RESPONSE_KIND = 24133

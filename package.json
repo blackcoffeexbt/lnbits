@@ -5,13 +5,14 @@
     "vendor_copy": "node -e \"require('./package.json').vendor.forEach((file) => require('fs').copyFileSync(file, './lnbits/static/vendor/'+file.split('/').pop()))\"",
     "vendor_json": "node -e \"require('fs').writeFileSync('./lnbits/static/vendor.json', JSON.stringify(require('./package.json').bundle))\"",
     "vendor_bundle_css": "node -e \"require('concat')(require('./package.json').bundle.css.map(a => 'lnbits/static/'+a), './lnbits/static/bundle.css')\"",
-    "vendor_bundle_js": "./node_modules/.bin/esbuild ./lnbits/static/js/onchain/nostr-signer-client.js --bundle --format=iife --global-name=BitcoinRemoteSigner --platform=browser --target=es2022 --minify --legal-comments=linked --outfile=./lnbits/static/js/onchain/nostr-signer.bundle.js && node -e \"require('concat')(require('./package.json').bundle.js.map(a => 'lnbits/static/'+a),'./lnbits/static/bundle.js')\"",
+    "vendor_bundle_js": "node -e \"require('concat')(require('./package.json').bundle.js.map(a => 'lnbits/static/'+a),'./lnbits/static/bundle.js')\"",
     "vendor_bundle_components": "node -e \"require('concat')(require('./package.json').bundle.components.map(a => 'lnbits/static/'+a), './lnbits/static/bundle-components.js')\"",
     "vendor_minify_css": "./node_modules/.bin/cleancss -o ./lnbits/static/bundle.min.css ./lnbits/static/bundle.css",
     "vendor_minify_js": "./node_modules/.bin/terser ./lnbits/static/bundle.js -o ./lnbits/static/bundle.min.js --compress --mangle",
     "vendor_minify_components": "./node_modules/.bin/terser ./lnbits/static/bundle-components.js -o ./lnbits/static/bundle-components.min.js --compress --mangle",
-    "bundle": "npm run sass && npm run vendor_copy && npm run vendor_json && npm run vendor_bundle_css && npm run vendor_bundle_js && npm run vendor_bundle_components && npm run vendor_minify_css && npm run vendor_minify_js && npm run vendor_minify_components",
-    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts"
+    "bundle": "npm run build:signer-crypto && npm run sass && npm run vendor_copy && npm run vendor_json && npm run vendor_bundle_css && npm run vendor_bundle_js && npm run vendor_bundle_components && npm run vendor_minify_css && npm run vendor_minify_js && npm run vendor_minify_components",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "build:signer-crypto": "node tools/build-signer-crypto.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
