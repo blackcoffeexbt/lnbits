@@ -17,6 +17,5 @@ flake.lock
 
 .venv
 
-# Reproducible remote signer browser bundles.
-**/session-crypto.bundle.js
+# Generated remote signer browser bundle.
 **/nostr-signer.bundle.js

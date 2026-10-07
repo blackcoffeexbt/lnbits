@@ -14,7 +14,7 @@ async function harness(network = 'Testnet4', automatic = true) {
   const {NostrBitcoinSigner} =
     await import('../../lnbits/static/js/onchain/nostr-signer-client.js')
   const {EncryptionSession, ephemeralKey, initHash} =
-    await import('../../lnbits/static/js/onchain/session-crypto.bundle.js')
+    await import('../../lnbits/static/js/onchain/session-crypto.js')
   const tools = await import('nostr-tools')
   const device = tools.generateSecretKey(),
     phone = tools.generateSecretKey(),
@@ -181,7 +181,7 @@ test('browser rejects legacy firmware before establishing a signing session', as
 })
 test('shared crypto vectors and exact replay rejection', async () => {
   const {EncryptionSession} =
-    await import('../../lnbits/static/js/onchain/session-crypto.bundle.js')
+    await import('../../lnbits/static/js/onchain/session-crypto.js')
   const vectors = JSON.parse(readFileSync('tests/session-vectors.json', 'utf8'))
   for (const v of vectors) {
     const client = new EncryptionSession(
