@@ -48,6 +48,22 @@
           ><q-item-section side
             ><q-icon name="chevron_right"></q-icon></q-item-section
         ></q-item>
+        <q-item
+          v-if="['Mainnet', 'Testnet4'].includes(network)"
+          clickable
+          v-close-popup
+          @click="$emit('pair-remote-signer')"
+          ><q-item-section avatar
+            ><q-icon name="link" color="primary"></q-icon></q-item-section
+          ><q-item-section
+            ><q-item-label>Pair Remote Signer</q-item-label
+            ><q-item-label caption
+              >Scan your remote signer's pairing code. Keys stay on the device,
+              which approves and signs payments.</q-item-label
+            ></q-item-section
+          ><q-item-section side
+            ><q-icon name="chevron_right"></q-icon></q-item-section
+        ></q-item>
         <q-item clickable v-close-popup @click="showAddAccountDialog"
           ><q-item-section avatar
             ><q-icon name="visibility" color="primary"></q-icon></q-item-section

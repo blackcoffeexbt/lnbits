@@ -343,7 +343,7 @@ def add_descriptor_metadata(
             )
 
 
-def create_psbt(data: CreatePsbt) -> Any:
+def create_psbt(data: CreatePsbt) -> Any:  # noqa: C901
     descriptors = {
         masterpub.id: parse_key(masterpub.public_key)[0]
         for masterpub in data.masterpubs
@@ -390,6 +390,8 @@ def create_psbt(data: CreatePsbt) -> Any:
             wally.WALLY_SCRIPT_TYPE_P2TR,
         ):
             wally.psbt_set_input_witness_utxo_from_tx(psbt, index, previous, inp.vout)
+            if data.include_non_witness_utxo:
+                wally.psbt_set_input_utxo(psbt, index, previous)
         else:
             wally.psbt_set_input_utxo(psbt, index, previous)
         add_descriptor_metadata(

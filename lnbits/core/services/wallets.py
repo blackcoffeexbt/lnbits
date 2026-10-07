@@ -1,3 +1,5 @@
+import re
+
 from starlette.concurrency import run_in_threadpool
 
 from lnbits.core.crud.onchain import create_fresh_addresses, get_addresses
@@ -198,9 +200,15 @@ async def init_onchain_wallet(
     wallet.onchain_network = data.network
     wallet.onchain_wallet_kind = "watch"
     wallet.onchain_meta = OnchainMeta(
+        signer=data.meta.signer,
         accountPath=data.meta.accountPath,
         xpub=data.meta.xpub,
-        masterpub=data.masterpub,
+        # Angle-bracket multipaths are stripped by the database HTML filter.
+        masterpub=re.sub(
+            r"/<([0-9]+(?:;[0-9]+)+)>/",
+            lambda match: "/{" + match[1].replace(";", ",") + "}/",
+            data.masterpub.split("#", 1)[0],
+        ),
         fingerprint=descriptor_fingerprint(descriptor),
         script_type=descriptor_type(descriptor),
     )

@@ -35,6 +35,19 @@ alongside the recovery phrase, and use the same settings when restoring.
 Back up both the server encryption key/database and individual wallet phrases.
 Disabling server signing does not disable phrase export.
 
+## Remote Bitcoin signer
+
+Mainnet and Testnet4 wallets can pair with a remote Bitcoin signing device. Open
+the wallet's **Pair Remote Signer** panel, scan the device's pairing code and
+approve the browser on the device. Pairing imports only the public descriptor
+into an unconfigured onchain wallet; an existing different account cannot be
+replaced by pairing.
+
+Signing uses [ephemeral encryption sessions](ephemeral-signer-sessions.md) with
+upgraded firmware. The browser encrypts the decryption PIN locally; the LNbits
+server receives no PIN or session key. Signed transactions must
+still be reviewed and explicitly broadcast by the user.
+
 ## Balances, history and payments
 
 The server scans both receive and change addresses. Confirmations, coins and
@@ -109,3 +122,9 @@ wallet, including when a user owns several wallets.
   uses `X-Onchain-Recovery-Phrase` so phrases do not enter request-body audit logs.
 
 See the instance's `/docs#/Onchain` for the complete API schema.
+
+The signer can pair up to eight devices. If all slots are occupied, the pairing
+panel explains how to remove one in **Settings > Paired devices** on the signer
+and try again. Re-pairing an existing browser identity does not consume another
+slot. The capacity message is shown only after an authenticated, request-bound
+error reply; a timeout alone cannot establish that the device is full.

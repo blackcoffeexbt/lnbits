@@ -12,6 +12,7 @@ window.app.component('onchain-payment', {
     'mempool-endpoint',
     'sats-denominated',
     'serial-signer-ref',
+    'prepare-signer',
     'adminkey',
     'network'
   ],
@@ -159,6 +160,9 @@ window.app.component('onchain-payment', {
           this.showFinalTx = true
           return
         }
+        await this.prepareSigner?.()
+        if (this.serialSignerRef?.isNostrSigner)
+          await this.serialSignerRef.ensureConnected()
         if (!this.serialSignerRef?.isConnected()) {
           this.$q.notify({
             type: 'warning',
@@ -186,6 +190,13 @@ window.app.component('onchain-payment', {
         }
 
         await this.createPsbt()
+
+        if (this.psbtBase64 && this.serialSignerRef.isNostrSigner) {
+          await this.serialSignerRef.signPsbt(this.psbtBase64, signed =>
+            this.updateSignedPsbt(signed)
+          )
+          return
+        }
 
         if (this.psbtBase64) {
           const txData = {
@@ -264,6 +275,8 @@ window.app.component('onchain-payment', {
         this.signedTxHex = null
         this.showFinalTx = false
         this.tx = this.createTx()
+        if (this.serialSignerRef?.isNostrSigner)
+          this.tx.include_non_witness_utxo = true
         const changeOutput = this.tx.outputs.find(o => o.branch_index === 1)
         if (changeOutput) changeOutput.amount = this.changeAmount
         if (this.canReview === false)
@@ -479,7 +492,7 @@ window.app.component('onchain-payment', {
 
         this.$q.notify({
           type: 'positive',
-          message: 'Transaction broadcasted!',
+          message: 'Transaction has been broadcast',
           caption: `${data}`,
           timeout: 10000
         })

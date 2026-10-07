@@ -392,6 +392,7 @@
           :mempool-endpoint="mempoolHostname"
           :adminkey="g.wallet.adminkey"
           :serial-signer-ref="signerDevice"
+          :prepare-signer="prepareSigner"
           :sats-denominated="config.sats_denominated"
           :network="config.network"
           @broadcast-done="handleBroadcastSuccess"
@@ -417,6 +418,7 @@
             @accounts-update="updateAccounts"
             @new-receive-address="showAddressDetailsWithConfirmation"
             @create-hot="$refs.hotWallet.openCreate()"
+            @pair-remote-signer="$refs.nostrSigner.dialog = true"
           ></onchain-wallet-list>
           <onchain-hot-wallet
             ref="hotWallet"
@@ -430,6 +432,7 @@
             v-model:config-data="config"
             :adminkey="g.wallet.adminkey"
             :busy="showPayment"
+            :remote-paired="remoteSignerPaired"
           >
             <template v-slot:trezor
               ><onchain-trezor-signer
@@ -448,6 +451,18 @@
                 @device:connected="handleDeviceConnected"
               ></onchain-serial-signer
             ></template>
+            <template v-slot:nostr>
+              <onchain-nostr-signer
+                ref="nostrSigner"
+                :network="config.network"
+                :user-id="g.user.id"
+                :wallet-id="g.wallet.id"
+                :adminkey="g.wallet.adminkey"
+                @device:connected="handleDeviceConnected"
+                @pairing-changed="remoteSignerPaired = $event"
+                @wallet-imported="$refs.walletList.refreshWalletAccounts()"
+              ></onchain-nostr-signer>
+            </template>
           </onchain-wallet-config>
         </template>
         <template #wallet-type-tools>

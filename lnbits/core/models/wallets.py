@@ -290,6 +290,7 @@ class WalletsFilters(FilterModel):
 
 
 class OnchainMeta(BaseModel):
+    signer: Literal["nostr"] | None = None
     masterpub: str = ""
     fingerprint: str = ""
     script_type: str | None = None
@@ -336,6 +337,7 @@ class OnchainWallet(Wallet):
 
 
 class CreateOnchainWalletMeta(BaseModel):
+    signer: Literal["nostr"] | None = None
     accountPath: str = ""  # noqa: N815 - preserve the API field name
     xpub: str | None = None
 

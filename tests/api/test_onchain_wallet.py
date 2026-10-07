@@ -1467,3 +1467,35 @@ async def test_scan_cannot_follow_reconfigured_wallet_onto_another_network(
     assert scanned <= old_addresses
     state = await onchain.get_wallet_state(wallet.id)
     assert state["addresses"] and state["snapshots"] == []
+
+
+@pytest.mark.anyio
+async def test_remote_signer_metadata_survives_wallet_import(
+    http_client, onchain_wallet
+):
+    wallet, _, headers = onchain_wallet
+    descriptor, account_path = wallet_descriptor(PHRASE, "Testnet4")
+    response = await http_client.post(
+        "/api/v1/wallet/onchain",
+        headers=headers,
+        json={
+            "masterpub": descriptor.replace("/{0,1}/", "/<0;1>/"),
+            "title": "Remote Bitcoin signer",
+            "network": "Testnet4",
+            "meta": {"signer": "nostr", "accountPath": account_path},
+        },
+    )
+    assert response.status_code == 200, response.text
+    fetched = await http_client.get("/api/v1/wallet/onchain", headers=headers)
+    assert fetched.status_code == 200
+    assert fetched.json()["onchain_meta"]["signer"] == "nostr"
+    stored = await get_onchain_wallet(wallet.id)
+    assert stored and stored.onchain_meta.signer == "nostr"
+    assert stored.onchain_meta.accountPath == account_path
+    assert stored.onchain_wallet_kind == "watch"
+    assert "/{0,1}/" in stored.onchain_meta.masterpub
+    addresses = await http_client.get(
+        f"/api/v1/onchain/addresses/{wallet.id}", headers=headers
+    )
+    assert addresses.status_code == 200, addresses.text
+    assert addresses.json()

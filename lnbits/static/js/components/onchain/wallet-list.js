@@ -1,7 +1,12 @@
 window.app.component('onchain-wallet-list', {
   name: 'onchain-wallet-list',
   template: '#onchain-wallet-list',
-  emits: ['accounts-update', 'new-receive-address', 'create-hot'],
+  emits: [
+    'accounts-update',
+    'new-receive-address',
+    'create-hot',
+    'pair-remote-signer'
+  ],
 
   props: [
     'adminkey',
@@ -300,6 +305,11 @@ window.app.component('onchain-wallet-list', {
           await this.serialSignerRef.hwwShowPasswordDialog()
           const authenticated = await this.serialSignerRef.isAuthenticating()
           if (!authenticated) return
+        }
+        if (this.serialSignerRef.isNostrSigner) {
+          this.serialSignerRef.dialog = true
+          await this.serialSignerRef.importAccount()
+          return
         }
         this.formDialog.show = true
         this.formDialog.useSerialPort = true
