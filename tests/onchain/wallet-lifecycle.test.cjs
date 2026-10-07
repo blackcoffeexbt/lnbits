@@ -19,7 +19,7 @@ function component(file, globals = {}) {
 }
 
 for (const failure of [false, true]) {
-  test(`signing dialog closes and PIN clears after ${failure ? 'failure' : 'success'}`, async () => {
+  test(`signing ${failure ? 'error stays visible' : 'success closes dialog'} and PIN clears`, async () => {
     const {instance: signer} = component(
       'lnbits/static/js/components/onchain/nostr-signer.js'
     )
@@ -41,7 +41,7 @@ for (const failure of [false, true]) {
       assert.equal(await signer.signPsbt('psbt'), 'signed-psbt')
     }
     assert.equal(signer.dialog, false)
-    assert.equal(signer.signingDialog, false)
+    assert.equal(signer.signingDialog, failure)
     assert.equal(signer.signing, false)
     assert.equal(signer.pinRequired, false)
     assert.equal(signer.pin, '')

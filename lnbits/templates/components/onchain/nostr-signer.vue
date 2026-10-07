@@ -10,7 +10,12 @@
     <q-dialog v-model="dialogOpen" :persistent="signing">
       <q-card style="width: 560px; max-width: 95vw">
         <q-card-section
-          ><div class="text-h6">Pair a Remote Signer</div>
+          ><div
+            class="text-h6"
+            v-text="
+              signingDialog ? 'Remote Bitcoin Signer' : 'Pair a Remote Signer'
+            "
+          ></div>
           <p v-if="!signingDialog">
             Scan the pairing code on the remote signer using the "Scan Pairing
             Code" button. Change the Client name if needed, this is shown on the
@@ -69,10 +74,12 @@
             style="overflow-wrap: anywhere"
             role="status"
             aria-live="polite"
-          >
-            {{ message }}
-          </p>
+            v-text="message"
+          ></p>
         </q-card-section>
+        <q-card-actions v-if="signingDialog && !signing" align="right">
+          <q-btn label="Close" flat v-close-popup></q-btn>
+        </q-card-actions>
         <q-card-actions v-if="!signingDialog" align="left">
           <q-btn
             label="Pair"

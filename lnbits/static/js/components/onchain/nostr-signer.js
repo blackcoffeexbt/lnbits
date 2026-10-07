@@ -84,12 +84,12 @@ window.app.component('onchain-nostr-signer', {
         this.message = 'Waiting for device…'
         const signed = await this.client.sign(psbt)
         this.message = 'Signing complete'
+        this.signingDialog = false
         return signed
       } catch (error) {
         this.message = error.message
         throw error
       } finally {
-        this.signingDialog = false
         this.signing = false
         this.pinRequired = false
         this.pin = ''
