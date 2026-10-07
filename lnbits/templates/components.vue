@@ -1,4 +1,5 @@
-{% include('components/onchain/wallet.vue') %} {%
+{% include('components/onchain/nostr-signer.vue') %} {%
+include('components/onchain/wallet.vue') %} {%
 include('components/onchain/wallet-config.vue') %} {%
 include('components/onchain/utxo-list.vue') %} {%
 include('components/onchain/wallet-list.vue') %} {%

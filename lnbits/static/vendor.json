@@ -46,7 +46,8 @@
     "js/onchain/map.js",
     "js/onchain/live-updates.js",
     "js/onchain/mempool-client.js",
-    "js/onchain/bip39-word-list.js"
+    "js/onchain/bip39-word-list.js",
+    "js/onchain/nostr-signer.bundle.js"
   ],
   "components": [
     "js/pages/error.js",
@@ -117,6 +118,7 @@
     "js/components/onchain/seed-input.js",
     "js/components/onchain/send-to.js",
     "js/components/onchain/serial-port-config.js",
+    "js/components/onchain/nostr-signer.js",
     "js/components/onchain/serial-signer.js",
     "js/components/onchain/trezor-signer.js",
     "js/components/onchain/utxo-list.js",

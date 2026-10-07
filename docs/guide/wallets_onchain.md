@@ -109,3 +109,17 @@ wallet, including when a user owns several wallets.
   uses `X-Onchain-Recovery-Phrase` so phrases do not enter request-body audit logs.
 
 See the instance's `/docs#/Onchain` for the complete API schema.
+
+## Remote Bitcoin signer
+
+Mainnet and Testnet4 wallets can pair with an ESP32 remote Bitcoin signer. Open
+the wallet's **Pair Remote Signer** panel, scan the device's pairing code and
+approve the browser on the device. Pairing imports only the public descriptor
+into an unconfigured onchain wallet; an existing different account cannot be
+replaced by pairing.
+
+Signing uses [ephemeral encryption sessions](ephemeral-signer-sessions.md) with
+upgraded firmware. The browser encrypts the request-bound PIN locally; the LNbits
+server receives no PIN or session key. Legacy remote signing has no fallback.
+Hiding the page disconnects and clears the session. Signed transactions must
+still be reviewed and explicitly broadcast by the user.

@@ -343,3 +343,38 @@ test('broadcast waits for finalization and still accepts native Trezor transacti
   assert.equal(calls[1][3].tx_hex, 'trezor-hex')
   assert.deepEqual(events, [['broadcast-done', 'txid']])
 })
+
+test('remote signing prepares the saved signer and finalizes without broadcasting', async () => {
+  const calls = []
+  const {instance: payment} = harness(async (method, path, key, body) => {
+    calls.push(path)
+    if (path.endsWith('/psbt')) {
+      assert.equal(body.include_non_witness_utxo, true)
+      return {data: 'unsigned-remote-psbt'}
+    }
+    assert.equal(path, '/api/v1/onchain/psbt/extract')
+    return {data: {tx_hex: 'signed-hex', tx_json: '{}'}}
+  })
+  payment.$refs = {paymentFormRef: {validate: async () => true}}
+  payment.canReview = true
+  payment.utxos = []
+  payment.createTx = () => ({inputs: [], outputs: []})
+  payment.fetchUtxoHexForPsbt = async () => []
+  payment.prepareSigner = async () => {
+    payment.serialSignerRef = {
+      isNostrSigner: true,
+      ensureConnected: async () => {},
+      isConnected: () => true,
+      isAuthenticated: () => true,
+      async signPsbt(psbt) {
+        assert.equal(psbt, 'unsigned-remote-psbt')
+        return 'signed-remote-psbt'
+      }
+    }
+  }
+  await payment.checkAndSend()
+  assert.equal(payment.showFinalTx, true)
+  assert.equal(payment.signedTxHex, 'signed-hex')
+  assert.equal(calls.length, 2)
+  assert.ok(calls.every(path => !path.includes('broadcast')))
+})

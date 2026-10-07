@@ -236,6 +236,11 @@ window.app.component('lnbits-onchain-wallet', {
       return hostname
     },
     signerDevice: function () {
+      if (
+        this.selectedWallet?.onchain_meta?.signer === 'nostr' ||
+        this.connectedDeviceType === 'nostr-device'
+      )
+        return this.$refs.nostrSigner
       if (this.connectedDeviceType === 'trezor-device') {
         return this.$refs.trezorSigner
       }
@@ -311,6 +316,19 @@ window.app.component('lnbits-onchain-wallet', {
   },
 
   methods: {
+    async prepareSigner() {
+      // Resolve refs and saved pairing at click time, including after a page reload.
+      // Existing imported accounts may not have the newer meta.signer flag.
+      await this.$nextTick()
+      const nostr = this.$refs.nostrSigner
+      if (
+        ['Mainnet', 'Testnet4'].includes(this.config.network) &&
+        nostr?.hasPairing()
+      ) {
+        this.connectedDeviceType = 'nostr-device'
+        await this.$nextTick() // Update the payment component's signer prop first.
+      }
+    },
     formatActivityAmount(value) {
       return LNbits.onchain.utils.satOrBtc(
         value,

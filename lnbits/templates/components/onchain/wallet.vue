@@ -392,6 +392,7 @@
           :mempool-endpoint="mempoolHostname"
           :adminkey="g.wallet.adminkey"
           :serial-signer-ref="signerDevice"
+          :prepare-signer="prepareSigner"
           :sats-denominated="config.sats_denominated"
           :network="config.network"
           @broadcast-done="handleBroadcastSuccess"
@@ -448,6 +449,17 @@
                 @device:connected="handleDeviceConnected"
               ></onchain-serial-signer
             ></template>
+            <template v-slot:nostr>
+              <onchain-nostr-signer
+                ref="nostrSigner"
+                :network="config.network"
+                :user-id="g.user.id"
+                :wallet-id="g.wallet.id"
+                :adminkey="g.wallet.adminkey"
+                @device:connected="handleDeviceConnected"
+                @wallet-imported="$refs.walletList.refreshWalletAccounts()"
+              ></onchain-nostr-signer>
+            </template>
           </onchain-wallet-config>
         </template>
         <template #wallet-type-tools>

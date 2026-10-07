@@ -10,8 +10,9 @@
     "vendor_minify_css": "./node_modules/.bin/cleancss -o ./lnbits/static/bundle.min.css ./lnbits/static/bundle.css",
     "vendor_minify_js": "./node_modules/.bin/terser ./lnbits/static/bundle.js -o ./lnbits/static/bundle.min.js --compress --mangle",
     "vendor_minify_components": "./node_modules/.bin/terser ./lnbits/static/bundle-components.js -o ./lnbits/static/bundle-components.min.js --compress --mangle",
-    "bundle": "npm run sass && npm run vendor_copy && npm run vendor_json && npm run vendor_bundle_css && npm run vendor_bundle_js && npm run vendor_bundle_components && npm run vendor_minify_css && npm run vendor_minify_js && npm run vendor_minify_components",
-    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts"
+    "bundle": "npm run build:signer-crypto && npm run sass && npm run vendor_copy && npm run vendor_json && npm run vendor_bundle_css && npm run vendor_bundle_js && npm run vendor_bundle_components && npm run vendor_minify_css && npm run vendor_minify_js && npm run vendor_minify_components",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "build:signer-crypto": "node tools/build-signer-crypto.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
@@ -20,7 +21,8 @@
     "prettier": "^3.8.3",
     "pyright": "1.1.409",
     "sass": "^1.99.0",
-    "terser": "^5.47.1"
+    "terser": "^5.47.1",
+    "esbuild": "^0.25.12"
   },
   "dependencies": {
     "axios": "^1.18.0",
@@ -36,7 +38,10 @@
     "vue-i18n": "^11.4.2",
     "vue-qrcode-reader": "^5.7.3",
     "vue-router": "5.0.6",
-    "vuex": "4.1.0"
+    "vuex": "4.1.0",
+    "@noble/ciphers": "^2.1.1",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0"
   },
   "vendor": [
     "./node_modules/moment/moment.js",
@@ -103,7 +108,8 @@
       "js/onchain/map.js",
       "js/onchain/live-updates.js",
       "js/onchain/mempool-client.js",
-      "js/onchain/bip39-word-list.js"
+      "js/onchain/bip39-word-list.js",
+      "js/onchain/nostr-signer.bundle.js"
     ],
     "components": [
       "js/pages/error.js",
@@ -174,6 +180,7 @@
       "js/components/onchain/seed-input.js",
       "js/components/onchain/send-to.js",
       "js/components/onchain/serial-port-config.js",
+      "js/components/onchain/nostr-signer.js",
       "js/components/onchain/serial-signer.js",
       "js/components/onchain/trezor-signer.js",
       "js/components/onchain/utxo-list.js",

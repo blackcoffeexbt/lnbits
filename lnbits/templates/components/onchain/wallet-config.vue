@@ -7,7 +7,8 @@
     <q-card-section>
       <div class="row items-center no-wrap">
         <div class="col row items-center q-gutter-sm">
-          <slot name="trezor"></slot><slot name="serial"></slot>
+          <slot name="trezor"></slot><slot name="serial"></slot
+          ><slot name="nostr"></slot>
         </div>
         <q-btn
           flat

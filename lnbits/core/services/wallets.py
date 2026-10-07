@@ -198,6 +198,7 @@ async def init_onchain_wallet(
     wallet.onchain_network = data.network
     wallet.onchain_wallet_kind = "watch"
     wallet.onchain_meta = OnchainMeta(
+        signer=data.meta.signer,
         accountPath=data.meta.accountPath,
         xpub=data.meta.xpub,
         masterpub=data.masterpub,
