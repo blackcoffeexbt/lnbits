@@ -343,7 +343,7 @@ def add_descriptor_metadata(
             )
 
 
-def create_psbt(data: CreatePsbt) -> Any:
+def create_psbt(data: CreatePsbt) -> Any:  # noqa: C901
     descriptors = {
         masterpub.id: parse_key(masterpub.public_key)[0]
         for masterpub in data.masterpubs
