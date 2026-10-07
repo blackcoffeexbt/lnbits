@@ -343,26 +343,7 @@ def add_descriptor_metadata(
             )
 
 
-def _set_input_utxos(
-    psbt: Any,
-    index: int,
-    previous: Any,
-    vout: int,
-    script: bytes,
-    include_non_witness: bool,
-) -> None:
-    segwit = wally.scriptpubkey_get_type(script) in (
-        wally.WALLY_SCRIPT_TYPE_P2WPKH,
-        wally.WALLY_SCRIPT_TYPE_P2WSH,
-        wally.WALLY_SCRIPT_TYPE_P2TR,
-    )
-    if segwit:
-        wally.psbt_set_input_witness_utxo_from_tx(psbt, index, previous, vout)
-    if include_non_witness or not segwit:
-        wally.psbt_set_input_utxo(psbt, index, previous)
-
-
-def create_psbt(data: CreatePsbt) -> Any:
+def create_psbt(data: CreatePsbt) -> Any:  # noqa: C901
     descriptors = {
         masterpub.id: parse_key(masterpub.public_key)[0]
         for masterpub in data.masterpubs
@@ -403,14 +384,16 @@ def create_psbt(data: CreatePsbt) -> Any:
             if wally.scriptpubkey_get_type(spk) == wally.WALLY_SCRIPT_TYPE_P2SH
             else b""
         )
-        _set_input_utxos(
-            psbt,
-            index,
-            previous,
-            inp.vout,
-            redeem or spk,
-            data.include_non_witness_utxo,
-        )
+        if wally.scriptpubkey_get_type(redeem or spk) in (
+            wally.WALLY_SCRIPT_TYPE_P2WPKH,
+            wally.WALLY_SCRIPT_TYPE_P2WSH,
+            wally.WALLY_SCRIPT_TYPE_P2TR,
+        ):
+            wally.psbt_set_input_witness_utxo_from_tx(psbt, index, previous, inp.vout)
+            if data.include_non_witness_utxo:
+                wally.psbt_set_input_utxo(psbt, index, previous)
+        else:
+            wally.psbt_set_input_utxo(psbt, index, previous)
         add_descriptor_metadata(
             psbt, index, descriptor, inp.address_index, inp.branch_index
         )
