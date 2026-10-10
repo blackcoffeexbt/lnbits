@@ -242,8 +242,19 @@ export class NostrBitcoinSigner {
           response.error ? new Error(response.error) : undefined
         )
       }
-      if (response.error) pending.reject(new Error(response.error))
-      else pending.resolve(response.result)
+      if (response.error) {
+        const pairingLimit =
+          pending.method === 'pair' &&
+          (response.error.startsWith('PAIRING_LIMIT:') ||
+            response.error === 'Maximum 8 clients')
+        pending.reject(
+          new Error(
+            pairingLimit
+              ? 'This device already has 8 paired devices. Remove one in Settings > Paired devices on the signer, then try pairing again.'
+              : response.error
+          )
+        )
+      } else pending.resolve(response.result)
     } catch (_) {
       /* Malformed, unauthenticated, or unrelated relay data is ignored. */
     }

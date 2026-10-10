@@ -122,3 +122,9 @@ wallet, including when a user owns several wallets.
   uses `X-Onchain-Recovery-Phrase` so phrases do not enter request-body audit logs.
 
 See the instance's `/docs#/Onchain` for the complete API schema.
+
+The signer can pair up to eight devices. If all slots are occupied, the pairing
+panel explains how to remove one in **Settings > Paired devices** on the signer
+and try again. Re-pairing an existing browser identity does not consume another
+slot. The capacity message is shown only after an authenticated, request-bound
+error reply; a timeout alone cannot establish that the device is full.

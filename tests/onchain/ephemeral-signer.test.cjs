@@ -257,3 +257,29 @@ test('hidden browser pages clear PIN UI and disconnect session; unmount removes 
   component.beforeUnmount.call(instance)
   assert.equal(removed, true)
 })
+
+test('authenticated pairing capacity error explains how to free a device slot', async () => {
+  for (const error of ['PAIRING_LIMIT: full', 'Maximum 8 clients']) {
+    const t = await harness()
+    try {
+      const pairing = t.client.request('pair', {
+        token: 'a'.repeat(32),
+        label: 'Browser'
+      })
+      const rejected = assert.rejects(
+        pairing,
+        /8 paired devices.*Settings > Paired devices/
+      )
+      await waitFor(() => t.client.pending.size > 0)
+      const request = t.request()
+      t.respond({...request, id: 'f'.repeat(32)}, {error})
+      await flush()
+      assert.equal(t.client.pending.size, 1)
+      t.respond(request, {error})
+      await rejected
+      assert.equal(t.client.pending.size, 0)
+    } finally {
+      t.client.close()
+    }
+  }
+})
