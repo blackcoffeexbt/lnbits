@@ -1,5 +1,7 @@
 .PHONY: test
 
+TEST_DATA_FOLDER ?= ./tests/data
+
 all: format check
 
 format: prettier black ruff
@@ -55,21 +57,21 @@ test-desktop:
 	uv run python -m unittest discover -s .github/packaging -v
 
 test-wallets:
-	LNBITS_DATA_FOLDER="./tests/data" \
+	LNBITS_DATA_FOLDER="$(TEST_DATA_FOLDER)" \
 	LNBITS_BACKEND_WALLET_CLASS="FakeWallet" \
 	PYTHONUNBUFFERED=1 \
 	DEBUG=true \
 	uv run pytest tests/wallets
 
 test-unit:
-	LNBITS_DATA_FOLDER="./tests/data" \
+	LNBITS_DATA_FOLDER="$(TEST_DATA_FOLDER)" \
 	LNBITS_BACKEND_WALLET_CLASS="FakeWallet" \
 	PYTHONUNBUFFERED=1 \
 	DEBUG=true \
 	uv run pytest tests/unit
 
 test-api:
-	LNBITS_DATA_FOLDER="./tests/data" \
+	LNBITS_DATA_FOLDER="$(TEST_DATA_FOLDER)" \
 	LNBITS_BACKEND_WALLET_CLASS="FakeWallet" \
 	PYTHONUNBUFFERED=1 \
 	DEBUG=true \

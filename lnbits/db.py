@@ -289,6 +289,26 @@ class Connection(Compat):
         return result
 
 
+class TransactionalConnection(Connection):
+    """Existing CRUD helpers without their per-statement commits.
+
+    Parameter-bound writes commit together; normal Connection calls still auto-commit.
+    """
+
+    async def execute(self, query: str, values: dict | None = None):
+        params = dict(values or {})
+        for key, value in params.items():
+            if isinstance(value, datetime):
+                params[key] = value.timestamp()
+        return await self.conn.execute(text(self.rewrite_query(query)), params)
+
+    async def insert(self, table_name: str, model: BaseModel):
+        await self.execute(insert_query(table_name, model), model_to_dict(model))
+
+    async def update(self, table_name: str, model: BaseModel, where="WHERE id = :id"):
+        await self.execute(update_query(table_name, model, where), model_to_dict(model))
+
+
 class Database(Compat):
     def __init__(self, db_name: str):
         self.name = db_name
@@ -341,6 +361,17 @@ class Database(Compat):
                 yield wconn
         finally:
             self.lock.release()
+
+    @asynccontextmanager
+    async def transaction(self, existing: Connection | None = None):
+        if isinstance(existing, TransactionalConnection):
+            yield existing
+            return
+        async with self.reuse_conn(existing) if existing else self.connect() as base:
+            await base.conn.commit()
+            conn = TransactionalConnection(base.conn, base.type, base.name, base.schema)
+            async with base.conn.begin():
+                yield conn
 
     async def fetchall(
         self,

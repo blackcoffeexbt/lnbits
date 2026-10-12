@@ -102,7 +102,26 @@ def disable_background_wallet_sync():
 @pytest.fixture(scope="session")
 async def app(settings: Settings, disable_background_wallet_sync):
     app = create_app()
+    from lnbits.extensions.argus import argus_ext
+    from lnbits.extensions.argus import migrations as argus_migrations
+    from lnbits.extensions.argus.services import db as argus_db
+
+    app.include_router(argus_ext)
+    from starlette.staticfiles import StaticFiles
+
+    app.mount(
+        "/argus/static",
+        StaticFiles(directory="lnbits/extensions/argus/static"),
+        name="argus_static",
+    )
     async with LifespanManager(app, startup_timeout=30) as manager:
+        async with argus_db.connect() as conn:
+            # Isolated test database; initialize the installed extension once.
+            row = await conn.fetchone(
+                "SELECT name FROM sqlite_master WHERE name = 'argus_config'"
+            )
+            if not row:
+                await argus_migrations.m001_initial(conn)
         settings.first_install = True
         await first_install(
             UpdateSuperuserPassword(
@@ -399,3 +418,28 @@ def _settings_cleanup(settings: Settings):
     settings.lnbits_user_activation_by_invitation_code = False
     settings.lnbits_register_reusable_activation_code = ""
     settings.lnbits_register_one_time_activation_codes = []
+
+
+@pytest.fixture
+async def argus_extension(app, mocker, settings):
+    from lnbits.extensions.argus import payment_authorization as ledger
+    from lnbits.extensions.argus import services as argus
+
+    mocker.patch.object(settings, "lnbits_extensions_deactivate_all", False)
+    from lnbits.core.crud.extensions import (
+        create_installed_extension,
+        get_installed_extension,
+        update_installed_extension_state,
+    )
+    from lnbits.core.models.extensions import InstallableExtension
+
+    extension = InstallableExtension.from_ext_dir("argus")
+    assert extension is not None
+    if await get_installed_extension("argus"):
+        await update_installed_extension_state(ext_id="argus", active=True)
+    else:
+        await create_installed_extension(extension)
+    ledger.register("argus", argus.provider)
+    yield argus
+    await ledger.configure("")
+    ledger.unregister("argus")

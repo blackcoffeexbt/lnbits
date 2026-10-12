@@ -187,6 +187,15 @@ include('components/lnbits-error.vue') %}
 
 <template id="lnbits-payment-details">
   <q-list separator>
+    <q-item v-if="payment.extra?.authorization">
+      <q-item-section>
+        <q-item-label>Payment authorization</q-item-label>
+        <q-item-label
+          caption
+          v-text="payment.extra.authorization.stage"
+        ></q-item-label>
+      </q-item-section>
+    </q-item>
     <q-item v-if="payment.tag">
       <q-item-section>
         <q-item-label v-text="$t('created')"></q-item-label>

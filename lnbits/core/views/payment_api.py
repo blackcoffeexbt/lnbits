@@ -210,16 +210,17 @@ async def api_payments_paginated(
             filters=filters,
             conn=conn,
         )
-        if not recheck_pending:
-            return page
+    # Status checks may await a device/funding source; release the DB lock first.
+    if not recheck_pending:
+        return page
 
-        payments = []
-        for payment in page.data:
-            if payment.pending:
-                refreshed_payment = await update_pending_payment(payment, conn=conn)
-                payments.append(refreshed_payment)
-            else:
-                payments.append(payment)
+    payments = []
+    for payment in page.data:
+        if payment.pending:
+            refreshed_payment = await update_pending_payment(payment)
+            payments.append(refreshed_payment)
+        else:
+            payments.append(payment)
 
     return Page(data=payments, total=page.total)
 
@@ -374,6 +375,10 @@ async def api_update_payment_extra(
             HTTPStatus.BAD_REQUEST, "Payment extra can only be updated after success."
         )
 
+    if "authorization" in data.extra:
+        raise HTTPException(
+            HTTPStatus.BAD_REQUEST, "Authorization metadata is server-owned."
+        )
     duplicate_keys = sorted(set(payment.extra).intersection(data.extra))
     if duplicate_keys:
         raise HTTPException(

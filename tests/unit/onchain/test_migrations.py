@@ -40,6 +40,7 @@ async def test_onchain_schema_uses_wallets_and_addresses(
             )
             migrated = await get_db_version("core", conn)
             assert migrated is not None and migrated.version == 53
+            # Restarting after the upgrade must also be safe.
             await run_migration(conn, migrations, "core", migrated)
 
             tables = {

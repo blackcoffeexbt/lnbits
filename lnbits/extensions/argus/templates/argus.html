@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block page %}<argus-settings></argus-settings>{% endblock %}
+{% block vue_templates %}<template id="argus-settings"><div>
+  <q-banner
+    v-if="isSuperUser && argusError"
+    class="bg-negative text-white q-mb-md"
+  >
+    <span v-text="argusError"></span>
+    <template v-slot:action
+      ><q-btn flat label="Retry Argus settings" @click="loadArgus"></q-btn
+    ></template>
+  </q-banner>
+  <q-card v-if="isSuperUser && argus && argusForm" class="q-mb-md">
+    <q-card-section class="row items-center q-gutter-md">
+      <q-icon name="verified_user" size="sm" color="primary"></q-icon>
+      <div>
+        <div class="text-h6">Argus</div>
+        <div class="text-caption text-secondary">
+          Device authorization for outgoing payments
+        </div>
+      </div>
+    </q-card-section>
+    <q-separator></q-separator>
+    <q-card-section>
+      <p
+        v-text="
+          argus.paired
+            ? argus.connected
+              ? 'Argus connected'
+              : 'Argus offline — payments wait for authorization'
+            : 'No paired Argus'
+        "
+      ></p>
+      <q-toggle
+        v-model="argusForm.enabled"
+        label="Require Argus authorization"
+      ></q-toggle>
+      <div class="row q-col-gutter-md q-my-sm">
+        <q-input
+          class="col-6"
+          type="number"
+          min="30"
+          max="3600"
+          v-model.number="argusForm.timeout"
+          label="Approval timeout (seconds)"
+          hint="Default 300 seconds; invoice expiry may be sooner"
+        ></q-input>
+      </div>
+      <q-btn
+        label="Save settings"
+        color="primary"
+        @click="saveArgus"
+        class="q-my-md"
+      ></q-btn>
+      <q-separator class="q-my-md"></q-separator>
+      <p>
+        On Argus, enter this LNbits HTTPS URL and select Connect. Then click
+        Pair device here. Compare the code on both screens and confirm on
+        each.
+      </p>
+      <q-btn
+        v-if="!argus.paired"
+        label="Pair device"
+        color="primary"
+        @click="argusAction('POST', '/pair')"
+        :disable="!!argus.pairing"
+      ></q-btn>
+      <q-btn
+        v-else
+        label="Revoke pairing"
+        color="negative"
+        outline
+        @click="revokeArgus"
+      ></q-btn>
+      <div v-if="argus.pairing" class="q-my-md">
+        <div v-if="argus.pairing.code">
+          <div class="text-h4 text-mono" v-text="argus.pairing.code"></div>
+          <p>Confirm only if this code matches Argus.</p>
+          <q-btn
+            label="Codes match"
+            color="primary"
+            :disable="argus.pairing.server_confirmed"
+            @click="
+              argusAction('POST', '/pair/confirm', {
+                session: argus.pairing.session,
+                approve: true
+              })
+            "
+          ></q-btn>
+          <q-btn
+            label="Reject"
+            flat
+            color="negative"
+            @click="
+              argusAction('POST', '/pair/confirm', {
+                session: argus.pairing.session,
+                approve: false
+              })
+            "
+          ></q-btn>
+          <p v-if="argus.pairing.server_confirmed">
+            Confirmed here. Waiting for Argus.
+          </p>
+          <p v-if="argus.pairing.device_confirmed">Confirmed on Argus.</p>
+        </div>
+        <p v-else>Waiting for Argus to connect…</p>
+      </div>
+      <div v-if="argus.paired">
+        <q-separator class="q-my-md"></q-separator>
+        <h6 class="q-my-md">Spending policy</h6>
+        <p>
+          Argus stores and enforces these limits. Exceeding any limit requires
+          a tap. Existing LNbits hard limits still apply.
+        </p>
+        <q-toggle
+          v-model="argusPolicy.automatic"
+          label="Automatically authorize within-limit payments"
+        ></q-toggle>
+        <div class="row q-col-gutter-md">
+          <q-input
+            class="col-4"
+            type="number"
+            min="0"
+            v-model.number="argusPolicy.transaction"
+            label="Per payment (sats)"
+          ></q-input>
+          <q-input
+            class="col-4"
+            type="number"
+            min="0"
+            v-model.number="argusPolicy.hour"
+            label="Rolling hour (sats)"
+          ></q-input>
+          <q-input
+            class="col-4"
+            type="number"
+            min="0"
+            v-model.number="argusPolicy.day"
+            label="Rolling day (sats)"
+          ></q-input>
+        </div>
+        <p class="q-mt-md">
+          Usage includes maximum fees and counts issued authorizations, even
+          if payment fails.
+        </p>
+        <q-btn
+          label="Review policy on Argus"
+          color="primary"
+          :disable="!!argus.proposal"
+          @click="argusAction('PUT', '/policy', argusPolicy)"
+        ></q-btn>
+        <p v-if="argus.proposal">
+          Policy change is awaiting confirmation on Argus.
+        </p>
+        <p
+          v-else
+          v-text="'Confirmed policy revision: ' + argus.policy.revision"
+        ></p>
+        <p
+          v-text="
+            'Active limits: ' +
+            argus.policy.transaction / 1000 +
+            ' sats per payment · ' +
+            argus.policy.hour / 1000 +
+            ' sats per hour · ' +
+            argus.policy.day / 1000 +
+            ' sats per day. ' +
+            (argus.policy.automatic
+              ? 'Within-limit authorization is automatic.'
+              : 'Every payment requires a tap.')
+          "
+        ></p>
+      </div>
+      <q-separator class="q-my-md"></q-separator>
+      <h6 class="q-my-md">Authorization requests</h6>
+      <q-list separator>
+        <q-item v-for="request in argusRequests" :key="request.id">
+          <q-item-section>
+            <q-item-label
+              v-text="
+                request.wallet +
+                ' · ' +
+                request.amount / 1000 +
+                ' sats · ' +
+                request.stage
+              "
+            ></q-item-label>
+            <q-item-label caption v-text="request.memo"></q-item-label>
+          </q-item-section>
+          <q-item-section
+            side
+            v-if="['queued', 'review', 'approved'].includes(request.stage)"
+          >
+            <q-btn
+              flat
+              label="Cancel"
+              color="negative"
+              @click="argusAction('DELETE', '/requests/' + request.id)"
+            ></q-btn>
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </q-card-section>
+  </q-card>
+</div></template>{% endblock %}
+{% block scripts %}<script src="/argus/static/index.js"></script>{% endblock %}

@@ -432,7 +432,13 @@
                             props.row.isIn && props.row.isPending
                               ? $t('invoice_waiting')
                               : props.row.isOut && props.row.isPending
-                                ? $t('outgoing_payment_pending')
+                                ? props.row.extra?.authorization?.stage ===
+                                  'review'
+                                  ? 'Awaiting approval on Argus'
+                                  : props.row.extra?.authorization?.stage ===
+                                      'queued'
+                                    ? 'Waiting for Argus'
+                                    : $t('outgoing_payment_pending')
                                 : props.row.isPaid && props.row.isIn
                                   ? $t('payment_received')
                                   : props.row.isPaid && props.row.isOut

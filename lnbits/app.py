@@ -573,6 +573,9 @@ async def check_and_register_extensions(app: FastAPI) -> None:
 
 def register_async_tasks() -> None:
     task_manager.init()
+    from lnbits.core.services.payment_hooks import expire
+
+    task_manager.create_permanent_task(expire, interval=1)
 
     # listen to all incoming payments and dispatch payment notifications
     # note: should be the first in task list for a bit quicker notifications
