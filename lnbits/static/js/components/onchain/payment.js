@@ -192,8 +192,9 @@ window.app.component('onchain-payment', {
         await this.createPsbt()
 
         if (this.psbtBase64 && this.serialSignerRef.isNostrSigner) {
-          const signed = await this.serialSignerRef.signPsbt(this.psbtBase64)
-          await this.updateSignedPsbt(signed)
+          await this.serialSignerRef.signPsbt(this.psbtBase64, signed =>
+            this.updateSignedPsbt(signed)
+          )
           return
         }
 

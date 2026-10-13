@@ -2,7 +2,7 @@ window.app.component('onchain-wallet-config', {
   name: 'onchain-wallet-config',
   template: '#onchain-wallet-config',
 
-  props: ['total', 'config-data', 'adminkey', 'busy'],
+  props: ['total', 'config-data', 'adminkey', 'busy', 'remote-paired'],
   emits: ['update:config-data'],
   data: function () {
     return {

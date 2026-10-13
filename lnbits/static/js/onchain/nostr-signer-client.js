@@ -67,6 +67,7 @@ export class NostrBitcoinSigner {
     this.pending = new Map()
     this.sockets = []
     this.closed = false
+    this.stopping = false
   }
   connect() {
     if (this.closed) throw new Error('Signer disconnected; create a new client')
@@ -92,7 +93,11 @@ export class NostrBitcoinSigner {
         ])
       )
       for (const p of this.pending.values())
-        if (Date.now() < p.deadline) socket.send(p.wire)
+        if (
+          (!this.stopping || p.method === 'cancel') &&
+          Date.now() < p.deadline
+        )
+          socket.send(p.wire)
     }
     socket.onmessage = event => {
       void this.receive(event.data)
@@ -152,7 +157,7 @@ export class NostrBitcoinSigner {
         Date.now() >= pending.deadline ||
         response.protocol !== 'bitcoin-signer' ||
         response.version !==
-          (pending.method === 'pair' || pending.method === 'get_account'
+          (['pair', 'get_account', 'cancel'].includes(pending.method)
             ? 1
             : 2) ||
         response.network !== this.network ||
@@ -172,6 +177,8 @@ export class NostrBitcoinSigner {
           ['Decrypting wallet', 3],
           ['Validating transaction', 4],
           ['Ready to sign — approve on device', 5],
+          ['Ready to sign: review approvals', 5],
+          ['Requesting controller approved', 5],
           ['Automatically approved', 5],
           ['Signing', 6],
           ['Signing complete', 7]
@@ -186,8 +193,10 @@ export class NostrBitcoinSigner {
         pending.sequence = response.sequence
         pending.status = response.status
         const manual =
-          response.status === 'Ready to sign — approve on device' &&
-          response.sequence === 5
+          [
+            'Ready to sign — approve on device',
+            'Ready to sign: review approvals'
+          ].includes(response.status) && response.sequence === 5
         const reason =
           manual &&
           typeof response.reason === 'string' &&
@@ -196,7 +205,10 @@ export class NostrBitcoinSigner {
             : ''
         this.onStatus(
           manual
-            ? `${reason ? reason + '. ' : ''}Waiting for on device approval`
+            ? reason ||
+                (response.status === 'Ready to sign — approve on device'
+                  ? 'On-device authorisation required'
+                  : 'Approval required on signer or paired device')
             : response.status
         )
         return
@@ -215,6 +227,13 @@ export class NostrBitcoinSigner {
           Array.isArray(response.result))
       )
         return
+      // Normalize older signer explanations without changing the attempts warning.
+      if (typeof response.error === 'string') {
+        response.error = response.error.replace(
+          /^(Wallet PIN incorrect)(?: [a-z ]{1,64})?(\. \d{1,2} attempts remaining before device wipe\.)/,
+          '$1$2'
+        )
+      }
       if (
         pending.method === 'unlock' &&
         pending.parentId &&
@@ -260,14 +279,15 @@ export class NostrBitcoinSigner {
     }
   }
   request(method, params = {}, hash = '', fixedId, fixedExpires) {
-    if (this.closed) return Promise.reject(new Error('Signer disconnected'))
+    if (this.closed || (this.stopping && method !== 'cancel'))
+      return Promise.reject(new Error('Request cancelled by controller'))
     if (
       method === 'unlock' &&
       (!this.pending.has(params.request_id) ||
         this.pending.get(params.request_id).method !== 'sign_psbt')
     )
       return Promise.reject(new Error('No active PIN request'))
-    if (this.pending.size && method !== 'unlock')
+    if (this.pending.size && !['unlock', 'cancel'].includes(method))
       return Promise.reject(new Error('A signing request is already active'))
     const now = Math.floor(Date.now() / 1000)
     const id = fixedId ?? hex(this.crypto.getRandomValues(new Uint8Array(16)))
@@ -315,7 +335,11 @@ export class NostrBitcoinSigner {
     const wire = JSON.stringify(['EVENT', event])
     return new Promise((resolve, reject) => {
       const publish = () => {
-        if (Date.now() >= expires * 1000) return
+        if (
+          (this.stopping && method !== 'cancel') ||
+          Date.now() >= expires * 1000
+        )
+          return
         for (const socket of this.sockets)
           if (socket.readyState === 1) {
             try {
@@ -338,7 +362,11 @@ export class NostrBitcoinSigner {
             this.finishPinRequests(id)
           }
           reject(
-            new Error('Signer timed out. Review and try a new signing request.')
+            new Error(
+              method === 'cancel'
+                ? 'Cancellation not confirmed. Your signer may still be working; check it before retrying.'
+                : 'Signer timed out. Review and try a new signing request.'
+            )
           )
         },
         Math.max(0, expires * 1000 - Date.now())
@@ -354,6 +382,7 @@ export class NostrBitcoinSigner {
         hash,
         wire,
         parentId,
+        token: method === 'pair' ? params.token : undefined,
         deadline: expires * 1000
       })
       publish()
@@ -493,6 +522,46 @@ export class NostrBitcoinSigner {
       return await reply
     } finally {
       pin = ''
+    }
+  }
+  async cancel() {
+    if (this.stopping) throw new Error('Cancellation already requested')
+    const entry = [...this.pending].find(([, p]) =>
+      ['pair', 'session_init', 'sign_psbt'].includes(p.method)
+    )
+    this.stopping = true
+    if (!entry) return true
+    const [id, target] = entry
+    try {
+      const result = await this.request(
+        'cancel',
+        {
+          request_id: id,
+          request_type: target.method === 'pair' ? 'pair' : 'sign_psbt',
+          request_expires: Math.floor(target.deadline / 1000),
+          ...(target.method === 'pair'
+            ? {token: target.token}
+            : {session: this.account.session})
+        },
+        target.hash,
+        undefined,
+        Math.floor(Date.now() / 1000) + 15
+      )
+      if (result.cancelled !== true)
+        throw new Error(
+          'The signer may already have finished. Check the result before trying again.'
+        )
+      const pending = this.pending.get(id)
+      if (pending) {
+        clearTimeout(pending.timer)
+        clearInterval(pending.retry)
+        this.pending.delete(id)
+        pending.reject(new Error('Request cancelled by controller'))
+        this.finishPinRequests(id, new Error('Request cancelled by controller'))
+      }
+      return true
+    } finally {
+      this.stopping = false
     }
   }
   close() {

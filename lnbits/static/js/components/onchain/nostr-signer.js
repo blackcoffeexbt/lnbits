@@ -1,10 +1,15 @@
 window.app.component('onchain-nostr-signer', {
   template: '#onchain-nostr-signer',
   props: ['network', 'user-id', 'wallet-id', 'adminkey'],
-  emits: ['device:connected', 'wallet-imported'],
+  emits: ['device:connected', 'wallet-imported', 'pairing-changed'],
   data() {
     return {
       dialog: false,
+      paired: false,
+      signingComplete: false,
+      signerResultReceived: false,
+      successCloseTimer: null,
+      signingError: false,
       signingDialog: false,
       pairing: '',
       label: 'LNbits browser',
@@ -12,6 +17,7 @@ window.app.component('onchain-nostr-signer', {
       connected: false,
       imported: false,
       busy: false,
+      stopping: false,
       account: null,
       message: '',
       scan: false,
@@ -22,13 +28,77 @@ window.app.component('onchain-nostr-signer', {
     }
   },
   computed: {
+    progress() {
+      if (this.signingComplete)
+        return {
+          step: 4,
+          icon: 'check',
+          title: 'Transaction signed',
+          detail: 'Review your transaction before broadcasting.'
+        }
+      if (this.signingError)
+        return {
+          step: 0,
+          icon: 'warning',
+          title: 'Signing needs attention',
+          detail: this.message
+        }
+      if (this.pinRequired)
+        return {
+          step: 0,
+          icon: 'lock',
+          title: 'Unlock your wallet',
+          detail: 'Enter your wallet decryption PIN below.'
+        }
+      if (this.message === 'Decrypting wallet')
+        return {
+          step: 1,
+          icon: 'lock_open',
+          title: 'Decrypting wallet',
+          detail: 'This usually takes around 30 seconds. Keep this window open.'
+        }
+      if (
+        /approve on device|review approvals|authorisations? required|approval required/i.test(
+          this.message
+        )
+      )
+        return {
+          step: 2,
+          icon: 'warning',
+          title: this.message.split('. ')[0],
+          detail: this.message.split('. ').slice(1).join('. ')
+        }
+      if (this.message === 'Signing complete')
+        return {
+          step: 3,
+          icon: 'shield',
+          title: 'Receiving signed transaction',
+          detail: 'Waiting for the signed transaction from your device…'
+        }
+      if (/Validating|Signing|approved/.test(this.message))
+        return {
+          step: 2,
+          icon: 'edit',
+          title: this.message,
+          detail: 'Your signer is checking and signing the transaction.'
+        }
+      return {
+        step: 0,
+        icon: 'lock',
+        title: this.message || 'Connecting to signer…',
+        detail: 'Keep your signer online and this window open.'
+      }
+    },
     dialogOpen: {
       get() {
         return this.dialog || this.signingDialog
       },
       set(value) {
         this.dialog = value
-        if (!value) this.signingDialog = false
+        if (!value) {
+          this.signingDialog = false
+          this.scan = false
+        }
       }
     },
     storageKey() {
@@ -44,9 +114,30 @@ window.app.component('onchain-nostr-signer', {
     },
     storageKey() {
       this.disconnect()
+      this.refreshPairing()
     }
   },
   methods: {
+    async stopWaiting() {
+      if (this.stopping || this.signerResultReceived || !this.client) return
+      this.stopping = true
+      this.pin = ''
+      try {
+        await this.client.cancel()
+        this.disconnect()
+        this.message = 'Request cancelled. Your signer is ready.'
+        this.dialog = false
+        this.signingDialog = false
+      } catch (error) {
+        this.$q.notify({type: 'warning', message: error.message})
+      } finally {
+        this.stopping = false
+      }
+    },
+    refreshPairing() {
+      this.paired = this.hasPairing()
+      this.$emit('pairing-changed', this.paired)
+    },
     hasPairing() {
       return !!localStorage.getItem(this.storageKey)
     },
@@ -73,8 +164,15 @@ window.app.component('onchain-nostr-signer', {
       if (!this.client || !this.connected)
         throw new Error(this.message || 'Signer unavailable')
     },
-    async signPsbt(psbt) {
+    async signPsbt(psbt, prepareReview) {
       if (this.signing) throw new Error('A signing request is already active')
+      if (this.successCloseTimer !== null) {
+        clearTimeout(this.successCloseTimer)
+        this.successCloseTimer = null
+      }
+      this.signingComplete = false
+      this.signerResultReceived = false
+      this.signingError = false
       this.signing = true
       this.dialog = false
       this.signingDialog = true
@@ -83,21 +181,36 @@ window.app.component('onchain-nostr-signer', {
         await this.ensureConnected()
         this.message = 'Waiting for device…'
         const signed = await this.client.sign(psbt)
+        this.signerResultReceived = true
         this.message = 'Signing complete'
-        this.signingDialog = false
+        if (prepareReview) await prepareReview(signed)
+        this.signingComplete = true
+        this.successCloseTimer = setTimeout(() => {
+          this.signingDialog = false
+          this.successCloseTimer = null
+        }, 3000)
         return signed
       } catch (error) {
+        this.signingError = true
         this.message = error.message
         throw error
       } finally {
         this.signing = false
         this.pinRequired = false
         this.pin = ''
+        if (
+          !this.stopping &&
+          typeof document !== 'undefined' &&
+          document.hidden
+        )
+          this.disconnect()
       }
     },
     async submitPin() {
       this.pinBusy = true
       this.pinRequired = false
+      this.signingError = false
+      this.message = 'PIN submitted — waiting for signer…'
       let pin = this.pin
       this.pin = ''
       try {
@@ -105,6 +218,7 @@ window.app.component('onchain-nostr-signer', {
         pin = ''
         await submission
       } catch (error) {
+        this.signingError = true
         this.message = error.message
         this.pinRequired =
           this.signing &&
@@ -128,6 +242,14 @@ window.app.component('onchain-nostr-signer', {
     forget() {
       this.disconnect()
       localStorage.removeItem(this.storageKey)
+      this.refreshPairing()
+      this.pairing = ''
+      this.scan = false
+      this.$q.notify({
+        type: 'info',
+        message:
+          'Pairing removed from this browser. Revoke it on the signer too.'
+      })
       this.message = 'Forgot this browser pairing. Revoke it on the device too.'
     },
     async connect(pair = false, forSigning = false) {
@@ -161,6 +283,7 @@ window.app.component('onchain-nostr-signer', {
             ...saved,
             secret: new Uint8Array(saved.secret),
             onStatus: status => {
+              this.signingError = false
               this.message = status
               this.pinRequired = status === 'PIN required'
             }
@@ -177,6 +300,8 @@ window.app.component('onchain-nostr-signer', {
           })
           delete saved.token
           localStorage.setItem(this.storageKey, JSON.stringify(saved))
+          this.refreshPairing()
+          this.scan = false
           this.pairing = ''
         }
         this.message = pair
@@ -185,10 +310,13 @@ window.app.component('onchain-nostr-signer', {
         this.account = await this.client.getAccount()
         this.connected = true
         this.$emit('device:connected', 'nostr-device')
-        if (!forSigning) await this.importAccount()
+        if (!forSigning) {
+          await this.importAccount()
+          if (this.imported) this.dialog = false
+        }
       } catch (error) {
         this.message = error.message
-        this.disconnect()
+        if (!this.stopping) this.disconnect()
       } finally {
         this.busy = false
       }
@@ -216,6 +344,7 @@ window.app.component('onchain-nostr-signer', {
             this.walletDescriptor(this.account.descriptor)
         ) {
           this.imported = true
+          this.dialog = false
           this.message =
             'Connected. Your public wallet is already imported and ready to use.'
           this.$emit('wallet-imported')
@@ -241,6 +370,7 @@ window.app.component('onchain-nostr-signer', {
           }
         )
         this.imported = true
+        this.dialog = false
         this.$emit('wallet-imported')
         this.message =
           'Signer connected and public wallet imported. You can now receive coins on the selected network.'
@@ -257,6 +387,10 @@ window.app.component('onchain-nostr-signer', {
         this.busy = false
       }
     },
+    scanError(error) {
+      this.scan = false
+      this.message = error.message
+    },
     detected(codes) {
       if (codes[0]?.rawValue) {
         this.pairing = codes[0].rawValue
@@ -265,12 +399,21 @@ window.app.component('onchain-nostr-signer', {
     }
   },
   mounted() {
+    if (typeof localStorage !== 'undefined') this.refreshPairing()
     this.onVisibilityChange = () => {
-      if (document.hidden) this.disconnect()
+      if (!document.hidden) return
+      this.pin = ''
+      // Approval can take place while this tab is hidden. Keep the request-bound
+      // session alive until its result or timeout; unmount still disconnects.
+      if (!this.signing) this.disconnect()
     }
     document.addEventListener('visibilitychange', this.onVisibilityChange)
   },
   beforeUnmount() {
+    if (this.successCloseTimer !== null) {
+      clearTimeout(this.successCloseTimer)
+      this.successCloseTimer = null
+    }
     document.removeEventListener('visibilitychange', this.onVisibilityChange)
     this.disconnect()
   }

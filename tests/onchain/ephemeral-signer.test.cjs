@@ -283,3 +283,122 @@ test('authenticated pairing capacity error explains how to free a device slot', 
     }
   }
 })
+
+for (const status of [
+  'Ready to sign — approve on device',
+  'Ready to sign: review approvals',
+  'Requesting controller approved'
+]) {
+  test(`browser displays authenticated approval progress: ${status}`, async () => {
+    const t = await harness()
+    try {
+      const signing = t.client.sign(
+        Buffer.from('public psbt').toString('base64')
+      )
+      await waitFor(() => t.client.pending.size > 0)
+      t.respond(t.request(), {result: t.account})
+      await waitFor(() =>
+        [...t.client.pending.values()].some(p => p.method === 'sign_psbt')
+      )
+      const request = t.request()
+      const before = t.status.at(-1)
+      t.respond(
+        request,
+        {status, sequence: 5, reason: 'Device approval required'},
+        false
+      )
+      assert.equal(t.status.at(-1), before)
+      t.respond(request, {status, sequence: 4})
+      assert.equal(t.status.at(-1), before)
+      t.respond(request, {
+        status,
+        sequence: 5,
+        reason: 'Device approval required'
+      })
+      assert.match(
+        t.status.at(-1),
+        status === 'Requesting controller approved'
+          ? /Requesting controller approved/
+          : /^Device approval required$/
+      )
+      assert.ok(t.client.pending.has(request.id))
+      const accepted = t.status.at(-1)
+      t.respond(request, {status: 'Validating transaction', sequence: 4})
+      assert.equal(t.status.at(-1), accepted)
+      t.respond(request, {result: {psbt: 'signed-public-fixture'}})
+      assert.equal(await signing, 'signed-public-fixture')
+    } finally {
+      t.client.close()
+    }
+  })
+}
+
+for (const explanation of ['', ' legacy explanation']) {
+  test(`browser normalizes PIN error wording${explanation}`, async () => {
+    const t = await harness()
+    try {
+      const signing = t.client.sign(
+        Buffer.from('public psbt').toString('base64')
+      )
+      const message =
+        'Wallet PIN incorrect. 15 attempts remaining before device wipe. Wait before retrying.'
+      const failure = assert.rejects(signing, {message})
+      await waitFor(() => t.client.pending.size > 0)
+      t.respond(t.request(), {result: t.account})
+      await waitFor(() =>
+        [...t.client.pending.values()].some(p => p.method === 'sign_psbt')
+      )
+      t.respond(t.request(), {
+        error: message.replace('incorrect.', `incorrect${explanation}.`)
+      })
+      await failure
+    } finally {
+      t.client.close()
+    }
+  })
+}
+
+test('stop waiting sends a request-bound cancellation and requires acknowledgement', async () => {
+  const t = await harness()
+  try {
+    const pairing = t.client.request('pair', {
+      token: 'a'.repeat(32),
+      label: 'Browser'
+    })
+    const failed = assert.rejects(pairing, /cancelled by controller/)
+    const original = t.request()
+    const stop = t.client.cancel()
+    const request = t.request()
+    assert.equal(request.method, 'cancel')
+    assert.equal(request.params.request_id, original.id)
+    assert.equal(request.params.request_expires, original.expires)
+    assert.equal(request.params.token, 'a'.repeat(32))
+    t.respond({...request, id: '0'.repeat(32)}, {result: {cancelled: true}})
+    await flush()
+    assert.ok(t.client.pending.has(original.id))
+    t.respond(request, {result: {cancelled: true}})
+    assert.equal(await stop, true)
+    await failed
+  } finally {
+    t.client.close()
+  }
+})
+
+test('an already completed request is not reported as cancelled', async () => {
+  const t = await harness()
+  try {
+    const pairing = t.client.request('pair', {
+      token: 'a'.repeat(32),
+      label: 'Browser'
+    })
+    const failed = assert.rejects(pairing)
+    const stop = t.client.cancel()
+    const rejected = assert.rejects(stop, /may already have finished/)
+    t.respond(t.request(), {result: {cancelled: false}})
+    await rejected
+    t.client.close()
+    await failed
+  } finally {
+    t.client.close()
+  }
+})

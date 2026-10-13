@@ -432,6 +432,7 @@
             v-model:config-data="config"
             :adminkey="g.wallet.adminkey"
             :busy="showPayment"
+            :remote-paired="remoteSignerPaired"
           >
             <template v-slot:trezor
               ><onchain-trezor-signer
@@ -458,6 +459,7 @@
                 :wallet-id="g.wallet.id"
                 :adminkey="g.wallet.adminkey"
                 @device:connected="handleDeviceConnected"
+                @pairing-changed="remoteSignerPaired = $event"
                 @wallet-imported="$refs.walletList.refreshWalletAccounts()"
               ></onchain-nostr-signer>
             </template>

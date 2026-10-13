@@ -366,8 +366,9 @@ test('remote signing prepares the saved signer and finalizes without broadcastin
       ensureConnected: async () => {},
       isConnected: () => true,
       isAuthenticated: () => true,
-      async signPsbt(psbt) {
+      async signPsbt(psbt, prepareReview) {
         assert.equal(psbt, 'unsigned-remote-psbt')
+        await prepareReview('signed-remote-psbt')
         return 'signed-remote-psbt'
       }
     }

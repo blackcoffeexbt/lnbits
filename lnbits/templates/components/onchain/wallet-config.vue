@@ -7,8 +7,10 @@
     <q-card-section>
       <div class="row items-center no-wrap">
         <div class="col row items-center q-gutter-sm">
-          <slot name="trezor"></slot><slot name="serial"></slot
-          ><slot name="nostr"></slot>
+          <div v-show="!remotePaired" class="row items-center q-gutter-sm">
+            <slot name="trezor"></slot><slot name="serial"></slot>
+          </div>
+          <slot name="nostr"></slot>
         </div>
         <q-btn
           flat

@@ -12,6 +12,7 @@ window.app.component('lnbits-onchain-wallet', {
       },
 
       currentAddress: null,
+      remoteSignerPaired: false,
 
       tab: 'history',
       selectedWalletId: null,
